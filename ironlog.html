@@ -205,58 +205,14 @@ textarea { resize: vertical; }
     <div id="drive-setup">
       <div class="setup-card">
         <div style="font-size:11px;color:var(--tx2);margin-bottom:16px;line-height:1.7">
-          One-time setup (~3 min). After this, your data loads automatically every time you open the app and saves after every entry.
+          Enter your password to connect. Your data will load automatically every time and save after every entry.
         </div>
-
-        <div class="setup-step">
-          <div class="step-num">1</div>
-          <div>
-            <div class="step-title">Open Google Apps Script</div>
-            <div class="step-desc">Go to <span class="link">script.google.com</span> → click <strong style="color:var(--tx)">New Project</strong> → delete all existing code.</div>
-          </div>
+        <label class="lbl">Password</label>
+        <input type="password" id="connect-pw" placeholder="your password" style="font-size:13px;margin-bottom:12px">
+        <div class="btn-row">
+          <button class="btn-gold" style="font-size:9px;padding:10px 16px;letter-spacing:2px" onclick="connectDrive()">Connect &amp; Load Data</button>
         </div>
-
-        <div class="setup-step">
-          <div class="step-num">2</div>
-          <div style="flex:1">
-            <div class="step-title">Pick a password & copy the code</div>
-            <div class="step-desc" style="margin-bottom:8px">Type your password — it gets inserted into the code automatically. Then copy and paste into Apps Script.</div>
-            <label class="lbl">Your password</label>
-            <input type="text" id="setup-pw" placeholder="e.g. ironlog-tiger-42" style="margin-bottom:8px;font-size:13px" oninput="updateCode()">
-            <div class="code-block" id="gas-code"></div>
-            <button class="btn-ghost" style="margin-top:6px" onclick="copyCode()">Copy Code</button>
-          </div>
-        </div>
-
-        <div class="setup-step">
-          <div class="step-num">3</div>
-          <div>
-            <div class="step-title">Deploy as Web App</div>
-            <div class="step-desc">
-              Click <strong style="color:var(--tx)">Deploy → New deployment</strong><br>
-              Type: <strong style="color:var(--tx)">Web app</strong><br>
-              Execute as: <strong style="color:var(--tx)">Me</strong><br>
-              Who has access: <strong style="color:var(--tx)">Anyone</strong><br>
-              Click <strong style="color:var(--tx)">Deploy</strong> → authorize when prompted.
-            </div>
-          </div>
-        </div>
-
-        <div class="setup-step">
-          <div class="step-num">4</div>
-          <div style="flex:1">
-            <div class="step-title">Connect</div>
-            <div class="step-desc" style="margin-bottom:10px">Paste the Web App URL and your password:</div>
-            <label class="lbl">Web App URL</label>
-            <input type="url" id="gas-url" placeholder="https://script.google.com/macros/s/..." style="font-size:12px;margin-bottom:8px">
-            <label class="lbl">Password</label>
-            <input type="password" id="connect-pw" placeholder="your password" style="font-size:13px">
-            <div class="btn-row">
-              <button class="btn-gold" style="font-size:9px;padding:10px 16px;letter-spacing:2px" onclick="connectDrive()">Connect &amp; Load Data</button>
-            </div>
-            <div id="connect-status"></div>
-          </div>
-        </div>
+        <div id="connect-status"></div>
       </div>
     </div>
 
@@ -275,11 +231,10 @@ textarea { resize: vertical; }
       </div>
 
       <div class="setup-card">
-        <div class="sec-lbl">Update Settings</div>
-        <div class="fld"><label class="lbl">Web App URL</label><input type="url" id="gas-url-2" style="font-size:12px"></div>
-        <div class="fld"><label class="lbl">Password</label><input type="password" id="pw-2" style="font-size:13px"></div>
+        <div class="sec-lbl">Change Password</div>
+        <div class="fld"><label class="lbl">New Password</label><input type="password" id="pw-2" placeholder="enter new password" style="font-size:13px"></div>
         <div class="btn-row">
-          <button class="btn-ghost" onclick="reconnect()">Save Changes</button>
+          <button class="btn-ghost" onclick="reconnect()">Save</button>
           <button class="btn-ghost" style="color:var(--red);border-color:#3a1a1a" onclick="disconnectDrive()">Disconnect</button>
         </div>
       </div>
@@ -315,6 +270,7 @@ textarea { resize: vertical; }
 <script>
 const DEXS = ['Bench Press','Squat','Deadlift','Overhead Press','Barbell Row','Pull-Up','Dumbbell Curl','Tricep Pushdown','Leg Press','Lat Pulldown'];
 const SK = 'ironlog_v2', UK = 'ironlog_gas_url', PK = 'ironlog_pw';
+const HARDCODED_URL = 'https://script.google.com/macros/s/AKfycbxmOYBfvmmg1Hh3v39pM8njHU4SKDZ9CK-FIu2uaUvLFclYxnLNZEJyjQspyF4Bac8PLQ/exec';
 let logs = [], gasUrl = '', password = '', currentView = 'log';
 
 function makeCode(pw) {
@@ -388,7 +344,7 @@ function fmtDate(d) { if(!d)return''; const[y,m,day]=d.split('-'); return m+'/'+
 
 function init() {
   logs = loadLogs();
-  gasUrl = gl(UK) || '';
+  gasUrl = gl(UK) || HARDCODED_URL;
   password = gl(PK) || '';
   document.getElementById('f-date').value = todayStr();
   updateCode();
@@ -568,15 +524,13 @@ function setStatus(elId, msg, ok) {
 }
 
 async function connectDrive() {
-  const url = document.getElementById('gas-url').value.trim();
   const pw = document.getElementById('connect-pw').value.trim();
-  if (!url || !url.includes('script.google.com')) { setStatus('connect-status','✗ Paste a valid Apps Script URL',false); return; }
   if (!pw) { setStatus('connect-status','✗ Enter your password',false); return; }
-  gasUrl = url; password = pw;
+  gasUrl = HARDCODED_URL; password = pw;
   setStatus('connect-status','Testing connection...',null);
   try {
     const data = await gasRequest('load');
-    sl(UK, url); sl(PK, pw);
+    sl(UK, gasUrl); sl(PK, pw);
     if (Array.isArray(data) && data.length > 0) {
       mergeLogs(data);
       setStatus('connect-status','✓ Connected! Loaded '+data.length+' entries.',true);
@@ -585,7 +539,7 @@ async function connectDrive() {
     }
     showConnected(); renderAll(); showFlash('Drive connected!');
   } catch(err) {
-    const msg = err.message==='unauthorized' ? '✗ Wrong password — check it matches the code' : '✗ '+err.message;
+    const msg = err.message==='unauthorized' ? '✗ Wrong password' : '✗ '+err.message;
     setStatus('connect-status', msg, false);
     gasUrl=''; password='';
   }
@@ -596,14 +550,11 @@ function showConnected() {
   document.getElementById('drive-connected').style.display='';
   document.getElementById('sync-badge').className='sync-badge connected';
   document.getElementById('sync-badge').textContent='● Drive';
-  document.getElementById('gas-url-2').value=gasUrl;
   updateDriveInfo();
 }
 
 function updateDriveInfo() {
-  document.getElementById('drive-info').innerHTML =
-    logs.length + ' entries synced<br>' +
-    '<span style="font-size:10px;color:var(--tx3)">' + gasUrl.slice(0,50) + '…</span>';
+  document.getElementById('drive-info').innerHTML = logs.length + ' entries synced to Google Drive';
 }
 
 async function driveLoad(silent=false) {
@@ -648,12 +599,10 @@ function mergeLogs(incoming) {
 }
 
 function reconnect() {
-  const url = document.getElementById('gas-url-2').value.trim();
   const pw = document.getElementById('pw-2').value.trim();
-  if (!url) return;
-  gasUrl = url; if (pw) password = pw;
-  sl(UK, gasUrl); sl(PK, password);
-  showFlash('Settings saved!'); updateDriveInfo();
+  if (!pw) return;
+  password = pw; sl(PK, password);
+  showFlash('Password updated!');
 }
 
 function disconnectDrive() {
