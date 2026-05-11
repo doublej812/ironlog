@@ -146,6 +146,7 @@ textarea { resize: vertical; }
     <button class="tab active" onclick="setView('log')">Log</button>
     <button class="tab" onclick="setView('history')">History</button>
     <button class="tab" onclick="setView('drive')">Drive</button>
+    <button class="tab" onclick="setView('backup')">Backup</button>
   </div>
 </div>
 
@@ -285,6 +286,29 @@ textarea { resize: vertical; }
   </div>
 </div>
 
+<!-- BACKUP VIEW -->
+<div id="view-backup" style="display:none">
+  <div class="sec">
+    <div class="sec-lbl">Export</div>
+    <div style="font-size:10px;color:var(--tx2);margin-bottom:8px;letter-spacing:1px">Select all → Copy → paste into Notes to save.</div>
+    <textarea id="export-text" style="height:140px;font-size:10px;color:#888" readonly onfocus="this.select()"></textarea>
+    <div class="btn-row">
+      <button class="btn-gold" style="font-size:9px;padding:10px 16px;letter-spacing:2px" onclick="copyExport()">Copy All</button>
+    </div>
+
+    <div style="border-top:1px solid #1e1e1e;margin-top:20px;padding-top:16px">
+      <div class="sec-lbl">Import</div>
+      <div style="font-size:10px;color:var(--tx2);margin-bottom:8px;letter-spacing:1px">Paste a previous export below, then tap Import & Merge.</div>
+      <textarea id="import-text" placeholder="Paste backup JSON here..." style="height:100px;font-size:11px"></textarea>
+      <div class="btn-row">
+        <button class="btn-gold" style="font-size:9px;padding:10px 16px;letter-spacing:2px" onclick="importData()">Import &amp; Merge</button>
+        <button class="btn-ghost" onclick="document.getElementById('import-text').value=''">Clear</button>
+      </div>
+      <div id="import-status" style="margin-top:8px"></div>
+    </div>
+  </div>
+</div>
+
 <div class="footer">Data saved locally — Drive sync keeps it backed up</div>
 
 <script>
@@ -381,13 +405,14 @@ function showFlash(msg, ok=true) {
 
 function setView(v) {
   currentView = v;
-  ['log','history','drive'].forEach(n => {
+  ['log','history','drive','backup'].forEach(n => {
     document.getElementById('view-'+n).style.display = n===v ? '' : 'none';
   });
   document.querySelectorAll('.tab').forEach((t,i) => {
-    t.classList.toggle('active', ['log','history','drive'][i]===v);
+    t.classList.toggle('active', ['log','history','drive','backup'][i]===v);
   });
   if (v==='history') renderHistory();
+  if (v==='backup') renderBackup();
 }
 
 function getAllEx() {
@@ -637,6 +662,38 @@ function disconnectDrive() {
   document.getElementById('drive-connected').style.display='none';
   document.getElementById('sync-badge').className='sync-badge disconnected';
   document.getElementById('sync-badge').textContent='No Drive';
+}
+
+function renderBackup() {
+  document.getElementById('export-text').value = JSON.stringify(logs, null, 2);
+}
+
+function copyExport() {
+  const el = document.getElementById('export-text');
+  el.select();
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(el.value).then(() => showFlash('Copied!'));
+  } else {
+    document.execCommand('copy');
+    showFlash('Copied!');
+  }
+}
+
+function importData() {
+  const raw = document.getElementById('import-text').value.trim();
+  if (!raw) return;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) throw new Error();
+    mergeLogs(parsed);
+    renderAll();
+    document.getElementById('import-text').value = '';
+    setStatus('import-status', '✓ Imported & merged ' + parsed.length + ' entries', true);
+    showFlash('Imported!');
+    if (gasUrl && password) driveSave(true);
+  } catch(e) {
+    setStatus('import-status', '✗ Invalid data — check the pasted text', false);
+  }
 }
 
 document.getElementById('f-date').addEventListener('change', renderAll);
