@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Iron Log</title>
+<style>
+:root {
+  --gold: #c8a96e;
+  --bg: #0d0d0d;
+  --bg2: #111111;
+  --bdr: #222222;
+  --bdr2: #2a2a2a;
+  --tx: #e8e0d0;
+  --tx2: #888888;
+  --tx3: #444444;
+  --grn: #5adc5a;
+  --grn-bg: #0a1f0a;
+  --red: #dc5a5a;
+  --red-bg: #1f0a0a;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  background: var(--bg); color: var(--tx);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px; min-height: 100vh; padding-bottom: 80px;
+}
+.hdr {
+  border-bottom: 3px solid var(--gold);
+  padding: 16px 18px 12px;
+  padding-top: calc(16px + env(safe-area-inset-top));
+  background: var(--bg);
+  position: sticky; top: 0; z-index: 40;
+}
+.hdr-top { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 12px; }
+.eyebrow { font-size: 9px; letter-spacing: 4px; color: var(--gold); text-transform: uppercase; margin-bottom: 2px; }
+.title { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+.sync-badge { font-size: 8px; letter-spacing: 1px; padding: 4px 8px; border: 1px solid; text-transform: uppercase; white-space: nowrap; }
+.sync-badge.connected { color: var(--grn); border-color: #2a5a2a; background: var(--grn-bg); }
+.sync-badge.disconnected { color: var(--tx3); border-color: var(--bdr2); }
+.sync-badge.syncing { color: var(--gold); border-color: #3a3020; }
+.tabs { display: flex; gap: 4px; }
+.tab {
+  background: transparent; color: var(--gold); border: 1px solid var(--gold);
+  padding: 6px 12px; font-family: 'Courier New', Courier, monospace;
+  font-size: 9px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; font-weight: 700;
+}
+.tab.active { background: var(--gold); color: var(--bg); }
+.flash {
+  position: sticky; top: 0; z-index: 99;
+  padding: 8px 16px; font-size: 10px; letter-spacing: 2px; display: none;
+}
+.flash.ok { background: var(--grn-bg); border-bottom: 1px solid #2a5a2a; color: var(--grn); display: block; }
+.flash.err { background: var(--red-bg); border-bottom: 1px solid #5a2a2a; color: var(--red); display: block; }
+.sec { padding: 18px; }
+.sec-lbl { font-size: 9px; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; margin-bottom: 12px; }
+.lbl { display: block; font-size: 8px; letter-spacing: 2px; color: var(--tx3); text-transform: uppercase; margin-bottom: 4px; }
+input, select, textarea {
+  background: #141414; border: 1px solid var(--bdr2); color: var(--tx);
+  padding: 10px 11px; font-family: 'Courier New', Courier, monospace;
+  font-size: 14px; width: 100%; outline: none;
+  -webkit-appearance: none; appearance: none; border-radius: 0;
+}
+input::placeholder, textarea::placeholder { color: #333; }
+textarea { resize: vertical; }
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.fld { margin-bottom: 10px; }
+.ac-wrap { position: relative; }
+.ac-list {
+  position: absolute; top: 100%; left: 0; right: 0;
+  background: #1a1a1a; border: 1px solid var(--bdr2); border-top: none;
+  z-index: 100; max-height: 180px; overflow-y: auto; display: none;
+}
+.ac-list.open { display: block; }
+.ac-item { padding: 10px 12px; font-size: 13px; cursor: pointer; color: var(--tx); border-bottom: 1px solid #1e1e1e; }
+.ac-item:active { background: #2a2a2a; }
+.btn-gold {
+  background: var(--gold); color: var(--bg); border: none;
+  padding: 12px 24px; font-family: 'Courier New', Courier, monospace;
+  font-size: 10px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; cursor: pointer;
+}
+.btn-ghost {
+  background: transparent; color: var(--tx3); border: 1px solid var(--bdr2);
+  padding: 9px 14px; font-family: 'Courier New', Courier, monospace;
+  font-size: 9px; letter-spacing: 2px; cursor: pointer;
+}
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.entry-row { display: flex; align-items: center; border-bottom: 1px solid #181818; padding: 10px 0; gap: 10px; }
+.entry-main { flex: 1; cursor: pointer; }
+.entry-name { font-weight: 700; font-size: 13px; }
+.entry-hint { font-size: 9px; color: var(--tx3); margin-left: 4px; }
+.entry-dt { font-size: 9px; color: var(--tx3); letter-spacing: 1px; margin-left: 6px; }
+.entry-stats { font-size: 12px; color: var(--tx2); margin-top: 3px; }
+.entry-w { color: var(--gold); font-weight: 700; }
+.entry-bw { color: #444; font-size: 11px; }
+.entry-notes { color: #444; margin-left: 8px; font-size: 11px; }
+.del-btn { background: transparent; border: none; color: var(--tx3); cursor: pointer; font-size: 18px; padding: 4px 8px; }
+.edit-wrap { border-bottom: 1px solid #181818; padding: 12px 0; }
+.pr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+.pr-card { border: 1px solid #1e1e1e; padding: 9px 11px; background: var(--bg2); }
+.pr-name { font-size: 8px; color: #444; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 3px; }
+.pr-val { font-size: 20px; font-weight: 700; color: var(--gold); }
+.pr-unit { font-size: 9px; color: #555; margin-left: 2px; }
+.empty { color: #2a2a2a; font-size: 12px; padding: 8px 0; }
+.filter-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.filter-lbl { font-size: 9px; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; }
+.filter-ct { font-size: 9px; color: var(--tx3); margin-left: auto; }
+.setup-card { background: var(--bg2); border: 1px solid var(--bdr); padding: 16px; margin-bottom: 10px; }
+.setup-step { display: flex; gap: 12px; margin-bottom: 16px; align-items: flex-start; }
+.step-num {
+  background: var(--gold); color: var(--bg); font-size: 10px; font-weight: 700;
+  width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 1px;
+}
+.step-title { font-size: 11px; font-weight: 700; color: var(--tx); margin-bottom: 5px; letter-spacing: 1px; }
+.step-desc { font-size: 11px; color: var(--tx2); line-height: 1.7; }
+.code-block {
+  background: #0a0a0a; border: 1px solid var(--bdr);
+  padding: 10px 12px; font-size: 10px; color: #aaa;
+  overflow-x: auto; white-space: pre; margin: 8px 0;
+  max-height: 150px; overflow-y: auto; line-height: 1.5;
+}
+.link { color: #6a9fcf; }
+.status-msg { font-size: 10px; letter-spacing: 1px; padding: 6px 0; }
+.status-msg.ok { color: var(--grn); }
+.status-msg.err { color: var(--red); }
+.status-msg.info { color: var(--tx2); }
+.divider { border-top: 1px solid #1e1e1e; margin: 14px 0; }
+.footer { padding: 0 18px; font-size: 9px; color: #1e1e1e; letter-spacing: 1px; margin-top: 16px; }
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-top">
+    <div>
+      <div class="eyebrow">Iron Log</div>
+      <div class="title">WEIGHT TRACKER</div>
+    </div>
+    <div id="sync-badge" class="sync-badge disconnected">No Drive</div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="setView('log')">Log</button>
+    <button class="tab" onclick="setView('history')">History</button>
+    <button class="tab" onclick="setView('drive')">Drive</button>
+  </div>
+</div>
+
+<div id="flash" class="flash"></div>
+
+<!-- LOG VIEW -->
+<div id="view-log">
+  <div class="sec">
+    <div class="sec-lbl">New Entry</div>
+    <div class="g2">
+      <div><label class="lbl">Date</label><input type="date" id="f-date"></div>
+      <div><label class="lbl">Exercise</label>
+        <div class="ac-wrap">
+          <input type="text" id="f-ex" placeholder="Pick or type..." autocomplete="off"
+            oninput="acRender()" onfocus="acRender()" onblur="setTimeout(acClose,200)">
+          <div class="ac-list" id="ac-list"></div>
+        </div>
+      </div>
+    </div>
+    <div class="g3">
+      <div><label class="lbl">Sets</label><input type="number" id="f-sets" placeholder="3" min="0" inputmode="numeric"></div>
+      <div><label class="lbl">Reps</label><input type="number" id="f-reps" placeholder="8" min="0" inputmode="numeric"></div>
+      <div><label class="lbl">Weight lbs</label><input type="number" id="f-wt" placeholder="135" min="0" inputmode="decimal"></div>
+    </div>
+    <div class="fld"><label class="lbl">Notes (optional)</label><input type="text" id="f-notes" placeholder="new PR, felt strong..."></div>
+    <button class="btn-gold" onclick="addEntry()">+ Log Set</button>
+    <div style="margin-top:24px">
+      <div class="sec-lbl" id="today-lbl"></div>
+      <div id="today-list"></div>
+    </div>
+    <div id="pr-sec" style="margin-top:20px;display:none">
+      <div class="sec-lbl">Personal Records</div>
+      <div class="pr-grid" id="pr-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY VIEW -->
+<div id="view-history" style="display:none">
+  <div class="sec">
+    <div class="filter-row">
+      <span class="filter-lbl">Filter:</span>
+      <select id="filter-ex" onchange="renderHistory()" style="width:auto;font-size:12px;padding:6px 10px"></select>
+      <span class="filter-ct" id="filter-ct"></span>
+    </div>
+    <div id="hist-list"></div>
+  </div>
+</div>
+
+<!-- DRIVE VIEW -->
+<div id="view-drive" style="display:none">
+  <div class="sec">
+    <div class="sec-lbl">Google Drive Sync</div>
+
+    <div id="drive-setup">
+      <div class="setup-card">
+        <div style="font-size:11px;color:var(--tx2);margin-bottom:16px;line-height:1.7">
+          One-time setup (~3 min). After this, your data loads automatically every time you open the app and saves after every entry.
+        </div>
+
+        <div class="setup-step">
+          <div class="step-num">1</div>
+          <div>
+            <div class="step-title">Open Google Apps Script</div>
+            <div class="step-desc">Go to <span class="link">script.google.com</span> → click <strong style="color:var(--tx)">New Project</strong> → delete all existing code.</div>
+          </div>
+        </div>
+
+        <div class="setup-step">
+          <div class="step-num">2</div>
+          <div style="flex:1">
+            <div class="step-title">Pick a password & copy the code</div>
+            <div class="step-desc" style="margin-bottom:8px">Type your password — it gets inserted into the code automatically. Then copy and paste into Apps Script.</div>
+            <label class="lbl">Your password</label>
+            <input type="text" id="setup-pw" placeholder="e.g. ironlog-tiger-42" style="margin-bottom:8px;font-size:13px" oninput="updateCode()">
+            <div class="code-block" id="gas-code"></div>
+            <button class="btn-ghost" style="margin-top:6px" onclick="copyCode()">Copy Code</button>
+          </div>
+        </div>
+
+        <div class="setup-step">
+          <div class="step-num">3</div>
+          <div>
+            <div class="step-title">Deploy as Web App</div>
+            <div class="step-desc">
+              Click <strong style="color:var(--tx)">Deploy → New deployment</strong><br>
+              Type: <strong style="color:var(--tx)">Web app</strong><br>
+              Execute as: <strong style="color:var(--tx)">Me</strong><br>
+              Who has access: <strong style="color:var(--tx)">Anyone</strong><br>
+              Click <strong style="color:var(--tx)">Deploy</strong> → authorize when prompted.
+            </div>
+          </div>
+        </div>
+
+        <div class="setup-step">
+          <div class="step-num">4</div>
+          <div style="flex:1">
+            <div class="step-title">Connect</div>
+            <div class="step-desc" style="margin-bottom:10px">Paste the Web App URL and your password:</div>
+            <label class="lbl">Web App URL</label>
+            <input type="url" id="gas-url" placeholder="https://script.google.com/macros/s/..." style="font-size:12px;margin-bottom:8px">
+            <label class="lbl">Password</label>
+            <input type="password" id="connect-pw" placeholder="your password" style="font-size:13px">
+            <div class="btn-row">
+              <button class="btn-gold" style="font-size:9px;padding:10px 16px;letter-spacing:2px" onclick="connectDrive()">Connect &amp; Load Data</button>
+            </div>
+            <div id="connect-status"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="drive-connected" style="display:none">
+      <div class="setup-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div class="sec-lbl" style="margin:0">Connected</div>
+          <div class="sync-badge connected">● Drive Active</div>
+        </div>
+        <div id="drive-info" style="font-size:11px;color:var(--tx2);line-height:1.8;margin-bottom:14px"></div>
+        <div class="btn-row">
+          <button class="btn-gold" style="font-size:9px;padding:10px 16px;letter-spacing:2px" onclick="driveSave()">↑ Save Now</button>
+          <button class="btn-ghost" style="color:var(--gold);border-color:#3a3020" onclick="driveLoad()">↓ Reload from Drive</button>
+        </div>
+        <div id="drive-status"></div>
+      </div>
+
+      <div class="setup-card">
+        <div class="sec-lbl">Update Settings</div>
+        <div class="fld"><label class="lbl">Web App URL</label><input type="url" id="gas-url-2" style="font-size:12px"></div>
+        <div class="fld"><label class="lbl">Password</label><input type="password" id="pw-2" style="font-size:13px"></div>
+        <div class="btn-row">
+          <button class="btn-ghost" onclick="reconnect()">Save Changes</button>
+          <button class="btn-ghost" style="color:var(--red);border-color:#3a1a1a" onclick="disconnectDrive()">Disconnect</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">Data saved locally — Drive sync keeps it backed up</div>
+
+<script>
+const DEXS = ['Bench Press','Squat','Deadlift','Overhead Press','Barbell Row','Pull-Up','Dumbbell Curl','Tricep Pushdown','Leg Press','Lat Pulldown'];
+const SK = 'ironlog_v2', UK = 'ironlog_gas_url', PK = 'ironlog_pw';
+let logs = [], gasUrl = '', password = '', currentView = 'log';
+
+function makeCode(pw) {
+  const p = (pw || 'YOUR_PASSWORD_HERE').replace(/'/g, "\\'");
+  return `function doGet(e) { return handleRequest(e); }
+function doPost(e) { return handleRequest(e); }
+
+function handleRequest(e) {
+  var SECRET = '${p}';
+  var params = e.parameter || {};
+  var body = {};
+  try { body = JSON.parse(e.postData.contents); } catch(x) {}
+  var key = params.key || body.key || '';
+  if (key !== SECRET) {
+    return ContentService
+      .createTextOutput(JSON.stringify({error:'unauthorized'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  var action = params.action || body.action;
+  var FILE = 'ironlog_backup.json';
+  var files = DriveApp.getFilesByName(FILE);
+  if (action === 'load') {
+    if (files.hasNext()) {
+      return ContentService
+        .createTextOutput(files.next().getBlob().getDataAsString())
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    return ContentService.createTextOutput('[]').setMimeType(ContentService.MimeType.JSON);
+  }
+  if (action === 'save') {
+    var content = JSON.stringify(body.logs);
+    if (files.hasNext()) { files.next().setContent(content); }
+    else { DriveApp.createFile(FILE, content, MimeType.PLAIN_TEXT); }
+    return ContentService
+      .createTextOutput(JSON.stringify({ok:true}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  return ContentService
+    .createTextOutput(JSON.stringify({error:'unknown action'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
+}
+
+function updateCode() {
+  document.getElementById('gas-code').textContent = makeCode(document.getElementById('setup-pw').value);
+}
+
+function copyCode() {
+  const pw = document.getElementById('setup-pw').value;
+  if (!pw) { showFlash('Enter your password first', false); return; }
+  const code = makeCode(pw);
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(code).then(() => showFlash('Code copied!'));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = code; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    showFlash('Code copied!');
+  }
+}
+
+function sl(k,v) { try { localStorage.setItem(k,v); } catch(e) {} }
+function gl(k) { try { return localStorage.getItem(k); } catch(e) { return null; } }
+function saveLogs() { sl(SK, JSON.stringify(logs)); }
+function loadLogs() {
+  try { const r=gl(SK); if(r){const p=JSON.parse(r);if(Array.isArray(p))return p;} } catch(e) {}
+  return [];
+}
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+function fmtDate(d) { if(!d)return''; const[y,m,day]=d.split('-'); return m+'/'+day+'/'+y.slice(2); }
+
+function init() {
+  logs = loadLogs();
+  gasUrl = gl(UK) || '';
+  password = gl(PK) || '';
+  document.getElementById('f-date').value = todayStr();
+  updateCode();
+  if (gasUrl && password) { showConnected(); driveLoad(true); }
+  renderAll();
+}
+
+let flashTimer;
+function showFlash(msg, ok=true) {
+  const el = document.getElementById('flash');
+  el.textContent = msg; el.className = 'flash '+(ok?'ok':'err');
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => el.className = 'flash', 2500);
+}
+
+function setView(v) {
+  currentView = v;
+  ['log','history','drive'].forEach(n => {
+    document.getElementById('view-'+n).style.display = n===v ? '' : 'none';
+  });
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', ['log','history','drive'][i]===v);
+  });
+  if (v==='history') renderHistory();
+}
+
+function getAllEx() {
+  return [...new Set([...DEXS,...logs.map(l=>l.exercise)])].sort();
+}
+function acRender() {
+  const val = document.getElementById('f-ex').value.toLowerCase();
+  const filtered = getAllEx().filter(s => val==='' || (s.toLowerCase().includes(val) && s.toLowerCase()!==val));
+  const list = document.getElementById('ac-list');
+  if (!filtered.length) { list.classList.remove('open'); return; }
+  list.innerHTML = filtered.map(s => `<div class="ac-item" onmousedown="acPick('${s.replace(/'/g,"\\'")}')"> ${s}</div>`).join('');
+  list.classList.add('open');
+}
+function acClose() { document.getElementById('ac-list').classList.remove('open'); }
+function acPick(v) { document.getElementById('f-ex').value = v; acClose(); }
+
+function addEntry() {
+  const ex=document.getElementById('f-ex').value.trim();
+  const sets=document.getElementById('f-sets').value.trim();
+  const reps=document.getElementById('f-reps').value.trim();
+  const wt=document.getElementById('f-wt').value.trim();
+  const notes=document.getElementById('f-notes').value.trim();
+  const date=document.getElementById('f-date').value;
+  if (!ex||!sets||!reps) { showFlash('Fill in exercise, sets & reps', false); return; }
+  logs.unshift({id:Date.now(), date, exercise:ex, sets, reps, weight:wt, notes});
+  saveLogs();
+  ['f-ex','f-sets','f-reps','f-wt','f-notes'].forEach(id => document.getElementById(id).value='');
+  renderAll();
+  showFlash('Logged!');
+  if (gasUrl && password) driveSave(true);
+}
+
+function renderAll() { renderToday(); renderPRs(); }
+
+function renderToday() {
+  const date = document.getElementById('f-date').value;
+  const tl = logs.filter(l=>l.date===date);
+  document.getElementById('today-lbl').textContent = fmtDate(date)+' — '+tl.length+' '+(tl.length===1?'entry':'entries');
+  const el = document.getElementById('today-list');
+  el.innerHTML = tl.length ? tl.map(e=>rowHTML(e,false)).join('') : '<div class="empty">Nothing logged yet.</div>';
+}
+
+function renderPRs() {
+  const exs = [...new Set(logs.map(l=>l.exercise))];
+  const prs = exs.map(ex => {
+    const vals = logs.filter(l=>l.exercise===ex&&Number(l.weight)>0).map(l=>Number(l.weight));
+    return vals.length ? {ex, pr:Math.max(...vals)} : null;
+  }).filter(Boolean);
+  const sec = document.getElementById('pr-sec');
+  if (!prs.length) { sec.style.display='none'; return; }
+  sec.style.display='';
+  document.getElementById('pr-grid').innerHTML = prs.map(p =>
+    `<div class="pr-card"><div class="pr-name">${p.ex}</div><div class="pr-val">${p.pr}<span class="pr-unit">lbs</span></div></div>`
+  ).join('');
+}
+
+function renderHistory() {
+  const sel = document.getElementById('filter-ex');
+  const cur = sel.value;
+  const exs = [...new Set(logs.map(l=>l.exercise))].sort();
+  sel.innerHTML = '<option>All</option>'+exs.map(e=>`<option${e===cur?' selected':''}>${e}</option>`).join('');
+  if (exs.includes(cur)) sel.value = cur;
+  const filtered = sel.value==='All' ? logs : logs.filter(l=>l.exercise===sel.value);
+  document.getElementById('filter-ct').textContent = filtered.length+' / '+logs.length;
+  const el = document.getElementById('hist-list');
+  el.innerHTML = filtered.length ? filtered.map(e=>rowHTML(e,true)).join('') : '<div class="empty">No entries.</div>';
+}
+
+function rowHTML(e, showDate) {
+  const ws = e.weight ? `<span class="entry-w">${e.weight} lbs</span>` : `<span class="entry-bw">bodyweight</span>`;
+  const ns = e.notes ? `<span class="entry-notes">— ${e.notes}</span>` : '';
+  const ds = showDate ? `<span class="entry-dt">${fmtDate(e.date)}</span>` : '';
+  return `<div class="entry-row" id="row-${e.id}">
+    <div class="entry-main" onclick="startEdit(${e.id})">
+      <div><span class="entry-name">${e.exercise}</span>${ds}<span class="entry-hint">(edit)</span></div>
+      <div class="entry-stats">${ws} <span style="color:#333;margin:0 3px">×</span> ${e.sets} sets × ${e.reps} reps${ns}</div>
+    </div>
+    <button class="del-btn" onclick="delEntry(${e.id})">×</button>
+  </div>`;
+}
+
+function startEdit(id) {
+  const e = logs.find(l=>l.id===id); if (!e) return;
+  const row = document.getElementById('row-'+id); if (!row) return;
+  row.outerHTML = `<div class="edit-wrap" id="edit-${id}">
+    <div class="g2" style="margin-bottom:8px">
+      <div><label class="lbl">Date</label><input type="date" id="ed-${id}-date" value="${e.date}"></div>
+      <div><label class="lbl">Exercise</label><input type="text" id="ed-${id}-ex" value="${e.exercise}"></div>
+    </div>
+    <div class="g3" style="margin-bottom:8px">
+      <div><label class="lbl">Sets</label><input type="number" id="ed-${id}-sets" value="${e.sets}" min="0" inputmode="numeric"></div>
+      <div><label class="lbl">Reps</label><input type="number" id="ed-${id}-reps" value="${e.reps}" min="0" inputmode="numeric"></div>
+      <div><label class="lbl">Weight</label><input type="number" id="ed-${id}-wt" value="${e.weight}" min="0" inputmode="decimal"></div>
+    </div>
+    <div style="margin-bottom:10px"><label class="lbl">Notes</label><input type="text" id="ed-${id}-notes" value="${e.notes||''}"></div>
+    <div class="btn-row">
+      <button class="btn-gold" style="font-size:9px;padding:9px 16px;letter-spacing:2px" onclick="saveEdit(${id})">Save</button>
+      <button class="btn-ghost" onclick="cancelEdit()">Cancel</button>
+    </div>
+  </div>`;
+}
+
+function saveEdit(id) {
+  const idx = logs.findIndex(l=>l.id===id); if (idx===-1) return;
+  const ex = document.getElementById(`ed-${id}-ex`).value.trim();
+  const sets = document.getElementById(`ed-${id}-sets`).value.trim();
+  const reps = document.getElementById(`ed-${id}-reps`).value.trim();
+  if (!ex||!sets||!reps) return;
+  logs[idx] = {...logs[idx],
+    date: document.getElementById(`ed-${id}-date`).value,
+    exercise: ex, sets, reps,
+    weight: document.getElementById(`ed-${id}-wt`).value.trim(),
+    notes: document.getElementById(`ed-${id}-notes`).value.trim()
+  };
+  saveLogs(); renderAll(); if (currentView==='history') renderHistory();
+  showFlash('Saved!');
+  if (gasUrl && password) driveSave(true);
+}
+
+function cancelEdit() { renderAll(); if (currentView==='history') renderHistory(); }
+
+function delEntry(id) {
+  if (!confirm('Delete this entry?')) return;
+  logs = logs.filter(l=>l.id!==id);
+  saveLogs(); renderAll(); if (currentView==='history') renderHistory();
+  if (gasUrl && password) driveSave(true);
+}
+
+async function gasRequest(action, data) {
+  if (action === 'load') {
+    const res = await fetch(gasUrl + '?action=load&key=' + encodeURIComponent(password));
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if (json.error) throw new Error(json.error);
+    return json;
+  } else {
+    const res = await fetch(gasUrl, {
+      method: 'POST',
+      body: JSON.stringify({action:'save', key:password, logs:data})
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if (json.error) throw new Error(json.error);
+    return json;
+  }
+}
+
+function setStatus(elId, msg, ok) {
+  const el = document.getElementById(elId);
+  const cls = ok===true?'ok':ok===false?'err':'info';
+  el.innerHTML = `<div class="status-msg ${cls}">${msg}</div>`;
+}
+
+async function connectDrive() {
+  const url = document.getElementById('gas-url').value.trim();
+  const pw = document.getElementById('connect-pw').value.trim();
+  if (!url || !url.includes('script.google.com')) { setStatus('connect-status','✗ Paste a valid Apps Script URL',false); return; }
+  if (!pw) { setStatus('connect-status','✗ Enter your password',false); return; }
+  gasUrl = url; password = pw;
+  setStatus('connect-status','Testing connection...',null);
+  try {
+    const data = await gasRequest('load');
+    sl(UK, url); sl(PK, pw);
+    if (Array.isArray(data) && data.length > 0) {
+      mergeLogs(data);
+      setStatus('connect-status','✓ Connected! Loaded '+data.length+' entries.',true);
+    } else {
+      setStatus('connect-status','✓ Connected! No existing data yet.',true);
+    }
+    showConnected(); renderAll(); showFlash('Drive connected!');
+  } catch(err) {
+    const msg = err.message==='unauthorized' ? '✗ Wrong password — check it matches the code' : '✗ '+err.message;
+    setStatus('connect-status', msg, false);
+    gasUrl=''; password='';
+  }
+}
+
+function showConnected() {
+  document.getElementById('drive-setup').style.display='none';
+  document.getElementById('drive-connected').style.display='';
+  document.getElementById('sync-badge').className='sync-badge connected';
+  document.getElementById('sync-badge').textContent='● Drive';
+  document.getElementById('gas-url-2').value=gasUrl;
+  updateDriveInfo();
+}
+
+function updateDriveInfo() {
+  document.getElementById('drive-info').innerHTML =
+    logs.length + ' entries synced<br>' +
+    '<span style="font-size:10px;color:var(--tx3)">' + gasUrl.slice(0,50) + '…</span>';
+}
+
+async function driveLoad(silent=false) {
+  if (!gasUrl||!password) return;
+  if (!silent) setStatus('drive-status','Loading from Drive...',null);
+  try {
+    const data = await gasRequest('load');
+    if (Array.isArray(data)) {
+      mergeLogs(data); renderAll();
+      if (!silent) setStatus('drive-status','✓ Loaded '+data.length+' entries',true);
+      else showFlash('Loaded from Drive!');
+      updateDriveInfo();
+    }
+  } catch(err) {
+    if (!silent) setStatus('drive-status','✗ '+err.message,false);
+    else showFlash('Drive load failed',false);
+  }
+}
+
+async function driveSave(silent=false) {
+  if (!gasUrl||!password) return;
+  if (!silent) setStatus('drive-status','Saving...',null);
+  const badge = document.getElementById('sync-badge');
+  badge.className='sync-badge syncing'; badge.textContent='↑ Saving';
+  try {
+    await gasRequest('save', logs);
+    if (!silent) setStatus('drive-status','✓ Saved '+logs.length+' entries',true);
+    else showFlash('Saved to Drive!');
+    badge.className='sync-badge connected'; badge.textContent='● Drive';
+    updateDriveInfo();
+  } catch(err) {
+    if (!silent) setStatus('drive-status','✗ '+err.message,false);
+    badge.className='sync-badge disconnected'; badge.textContent='⚠ Sync err';
+  }
+}
+
+function mergeLogs(incoming) {
+  const merged = [...incoming];
+  logs.forEach(l => { if (!merged.find(m=>m.id===l.id)) merged.push(l); });
+  merged.sort((a,b) => b.id-a.id);
+  logs = merged; saveLogs();
+}
+
+function reconnect() {
+  const url = document.getElementById('gas-url-2').value.trim();
+  const pw = document.getElementById('pw-2').value.trim();
+  if (!url) return;
+  gasUrl = url; if (pw) password = pw;
+  sl(UK, gasUrl); sl(PK, password);
+  showFlash('Settings saved!'); updateDriveInfo();
+}
+
+function disconnectDrive() {
+  if (!confirm('Disconnect Drive? Your local data stays safe.')) return;
+  gasUrl=''; password=''; sl(UK,''); sl(PK,'');
+  document.getElementById('drive-setup').style.display='';
+  document.getElementById('drive-connected').style.display='none';
+  document.getElementById('sync-badge').className='sync-badge disconnected';
+  document.getElementById('sync-badge').textContent='No Drive';
+}
+
+document.getElementById('f-date').addEventListener('change', renderAll);
+init();
+</script>
+</body>
+</html>
